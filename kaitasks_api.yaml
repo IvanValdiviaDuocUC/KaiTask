@@ -1,0 +1,420 @@
+
+openapi: 3.0.3
+info:
+  title: KaiTasks API
+  version: 0.1.0
+  description: >
+    API para la gestión organizacional de tareas (KaiTasks).
+    Cubre CRUD de tareas, validaciones de jefatura, notificaciones y dashboard.
+servers:
+  - url: https://api.kaitasks.ejemplo.com/v1
+    description: Servidor de producción
+  - url: http://localhost:8080/v1
+    description: Servidor local de desarrollo
+tags:
+  - name: Auth
+  - name: Usuarios
+  - name: Tareas
+  - name: Validaciones
+  - name: Notificaciones
+  - name: Dashboard
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                correo:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required: [correo, password]
+      responses:
+        "200":
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT
+        "401":
+          description: Credenciales inválidas
+
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      summary: Listar usuarios con filtros simples
+      parameters:
+        - in: query
+          name: rol
+          schema:
+            $ref: '#/components/schemas/Rol'
+        - in: query
+          name: activo
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Usuario'
+
+  /tareas:
+    get:
+      tags: [Tareas]
+      summary: Listar tareas
+      parameters:
+        - in: query
+          name: estado
+          schema:
+            $ref: '#/components/schemas/EstadoTarea'
+        - in: query
+          name: responsableId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: area
+          schema:
+            type: string
+        - in: query
+          name: q
+          description: Búsqueda por palabra clave
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de tareas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tarea'
+    post:
+      tags: [Tareas]
+      summary: Crear tarea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TareaCreate'
+      responses:
+        "201":
+          description: Creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+
+  /tareas/{id}:
+    get:
+      tags: [Tareas]
+      summary: Obtener tarea por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tarea
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+        "404":
+          description: No encontrada
+    patch:
+      tags: [Tareas]
+      summary: Actualizar parcialmente una tarea
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TareaUpdate'
+      responses:
+        "200":
+          description: Actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+    delete:
+      tags: [Tareas]
+      summary: Eliminar una tarea
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Eliminada
+
+  /tareas/{id}/asignar:
+    post:
+      tags: [Tareas]
+      summary: Asignar responsable y fecha fin
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                responsableId:
+                  type: string
+                  format: uuid
+                fechaFin:
+                  type: string
+                  format: date
+              required: [responsableId, fechaFin]
+      responses:
+        "200":
+          description: Asignada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+
+  /tareas/{id}/estado:
+    post:
+      tags: [Tareas]
+      summary: Actualizar estado de la tarea
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                estado:
+                  $ref: '#/components/schemas/EstadoTarea'
+              required: [estado]
+      responses:
+        "200":
+          description: Estado actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+
+  /tareas/{id}/validar:
+    post:
+      tags: [Validaciones]
+      summary: Validar tarea (aprobar/rechazar)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidacionCreate'
+      responses:
+        "201":
+          description: Validación registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Validacion'
+
+  /notificaciones:
+    get:
+      tags: [Notificaciones]
+      summary: Listar notificaciones del usuario
+      parameters:
+        - in: query
+          name: usuarioId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: leida
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Lista de notificaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notificacion'
+  /notificaciones/{id}/leer:
+    post:
+      tags: [Notificaciones]
+      summary: Marcar notificación como leída
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Marcada como leída
+
+  /dashboard/resumen:
+    get:
+      tags: [Dashboard]
+      summary: Resumen de KPIs por estado
+      responses:
+        "200":
+          description: KPIs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResumen'
+
+components:
+  schemas:
+    Rol:
+      type: string
+      enum: [JEFATURA, COLABORADOR, GERENTE]
+
+    EstadoTarea:
+      type: string
+      enum: [PENDIENTE, EN_PROGRESO, COMPLETADA, FINALIZADA, ATRASADA]
+
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        correo:
+          type: string
+          format: email
+        rol:
+          $ref: '#/components/schemas/Rol'
+        area:
+          type: string
+        activo:
+          type: boolean
+      required: [id, nombre, correo, rol]
+
+    Tarea:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string }
+        descripcion: { type: string }
+        estado: { $ref: '#/components/schemas/EstadoTarea' }
+        fechaInicio: { type: string, format: date }
+        fechaFin: { type: string, format: date }
+        creadorId: { type: string, format: uuid }
+        responsableId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, titulo, estado, fechaFin, creadorId]
+
+    TareaCreate:
+      type: object
+      properties:
+        titulo: { type: string }
+        descripcion: { type: string }
+        fechaFin: { type: string, format: date }
+        creadorId: { type: string, format: uuid }
+      required: [titulo, fechaFin, creadorId]
+
+    TareaUpdate:
+      type: object
+      properties:
+        titulo: { type: string }
+        descripcion: { type: string }
+        estado: { $ref: '#/components/schemas/EstadoTarea' }
+        fechaFin: { type: string, format: date }
+        responsableId: { type: string, format: uuid }
+
+    Validacion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tareaId: { type: string, format: uuid }
+        validadorId: { type: string, format: uuid }
+        fecha: { type: string, format: date-time }
+        resultado: { type: boolean, description: "true=aprobada, false=rechazada" }
+        comentario: { type: string }
+      required: [id, tareaId, validadorId, resultado]
+
+    ValidacionCreate:
+      type: object
+      properties:
+        validadorId: { type: string, format: uuid }
+        resultado: { type: boolean }
+        comentario: { type: string }
+      required: [validadorId, resultado]
+
+    Notificacion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tareaId: { type: string, format: uuid }
+        usuarioId: { type: string, format: uuid }
+        mensaje: { type: string }
+        fecha: { type: string, format: date-time }
+        leida: { type: boolean }
+      required: [id, tareaId, usuarioId, mensaje, fecha, leida]
+
+    DashboardResumen:
+      type: object
+      properties:
+        pendientes: { type: integer }
+        en_progreso: { type: integer }
+        atrasadas: { type: integer }
+        completadas: { type: integer }
+      required: [pendientes, en_progreso, atrasadas, completadas]
